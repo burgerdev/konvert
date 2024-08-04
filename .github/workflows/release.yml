@@ -1,0 +1,45 @@
+name: "releasetest"
+
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  build:
+    name: "Build"
+    runs-on: "ubuntu-latest"
+    container: 
+      image: "golang:1.22"
+
+    steps:
+      - uses: "actions/checkout@v3"
+
+      - name: "build"
+        run: |
+          env CGO_ENABLED=0 go build -o /tmp/konvert ./main.go
+
+      - uses: "actions/upload-artifact@v4"
+        with:
+          name: "binary"
+          path: "/tmp/konvert"
+  pre-release:
+    name: "Pre Release"
+    needs: "build"
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: "write"
+
+    steps:
+      - uses: "actions/checkout@v3"
+      - uses: "actions/download-artifact@v4"
+        with:
+          name: "binary"
+          path: "/tmp"
+      - name: "release"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          # delete stuff first
+          gh release delete nightly --cleanup-tag -y || true
+          gh release create nightly -p -t Nightly -n "Automatic build from head of main" /tmp/konvert
