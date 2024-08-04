@@ -25,6 +25,18 @@ func parse(r io.Reader) (*corev1.Pod, error) {
 	switch *from {
 	case "pod":
 		return parseAs[corev1.Pod](r)
+	case "deployment":
+		d, err := parseAs[appsv1.Deployment](r)
+		if err != nil {
+			return nil, err
+		}
+		p := &corev1.Pod{}
+		p.Spec = d.Spec.Template.Spec
+		p.SetName(d.Name)
+		p.SetNamespace(d.Namespace)
+		p.SetLabels(d.Spec.Template.Labels)
+		p.SetAnnotations(d.Spec.Template.Annotations)
+		return p, nil
 	}
 	return nil, fmt.Errorf("no conversion from %q to v1.Pod", *from)
 }
@@ -46,6 +58,13 @@ func convert(pod *corev1.Pod) (any, error) {
 	switch *to {
 	case "deployment":
 		return convertToDeployment(pod)
+	case "pod":
+		pod.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "core",
+			Version: "v1",
+			Kind:    "Pod",
+		})
+		return pod, nil
 	}
 	return nil, fmt.Errorf("no conversion to %q from v1.Pod", *to)
 }
